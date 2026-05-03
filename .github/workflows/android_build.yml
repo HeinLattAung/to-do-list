@@ -1,0 +1,77 @@
+name: Android CI Build
+
+# Triggers — run on every push/PR to main, plus a manual button in the Actions tab.
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:        # adds a "Run workflow" button in the GitHub UI
+
+jobs:
+  build:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # ---------------------------------------------------------------
+      # Set up Gradle directly on the runner — this gives us the
+      # `gradle` command + caching, without needing the wrapper
+      # checked into git.
+      # ---------------------------------------------------------------
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      # ---------------------------------------------------------------
+      # If the repo doesn't ship the wrapper files, generate them now.
+      # This means you NEVER have to commit gradlew/gradlew.bat/
+      # gradle-wrapper.jar yourself — the runner creates them on
+      # every build.
+      # ---------------------------------------------------------------
+      - name: Generate Gradle wrapper if missing
+        run: |
+          if [ ! -f ./gradlew ] || [ ! -f ./gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "Gradle wrapper not found — generating..."
+            gradle wrapper --gradle-version 8.7 --distribution-type bin
+          else
+            echo "Gradle wrapper already present, skipping generation."
+          fi
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      # ---------------------------------------------------------------
+      # The actual build.
+      # ---------------------------------------------------------------
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Upload app-debug.apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      # Build reports — only uploaded when the build fails, so you can debug.
+      - name: Upload build reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            app/build/reports/
+            app/build/outputs/logs/
+          retention-days: 7
