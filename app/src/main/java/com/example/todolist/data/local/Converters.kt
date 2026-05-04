@@ -1,6 +1,7 @@
 package com.example.todolist.data.local
 
 import androidx.room.TypeConverter
+import com.example.todolist.data.local.entity.Priority
 import com.example.todolist.data.local.entity.TaskStatus
 
 /**
@@ -15,4 +16,11 @@ class Converters {
     @TypeConverter
     fun toStatus(value: String): TaskStatus =
         runCatching { TaskStatus.valueOf(value) }.getOrDefault(TaskStatus.PENDING)
+
+    @TypeConverter
+    fun fromPriority(priority: Priority): String = priority.name
+
+    @TypeConverter
+    fun toPriority(value: String): Priority =
+        runCatching { Priority.valueOf(value) }.getOrDefault(Priority.MEDIUM)
 }

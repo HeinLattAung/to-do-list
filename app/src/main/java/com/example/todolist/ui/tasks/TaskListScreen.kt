@@ -31,10 +31,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.taskcard.TaskCard
+import com.example.taskcard.TaskPriority as UiTaskPriority
+import com.example.taskcard.TaskStatus as UiTaskStatus
+import com.example.todolist.data.local.entity.Priority as EntityPriority
+import com.example.todolist.data.local.entity.TaskStatus as EntityTaskStatus
 import com.example.todolist.ui.calendar.HorizontalCalendar
 import com.example.todolist.ui.tasks.add.AddTaskSheet
 import com.example.todolist.ui.tasks.swipe.SwipeToDeleteTaskCard
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Top-level screen for the app.
@@ -107,15 +115,31 @@ fun TaskListScreen(
                             onDelete = viewModel::deleteTask,
                             modifier = Modifier.animateItem()
                         ) {
-                            // Tap a card → open the sheet in Edit mode for this task.
-                            Text(
-                                text     = "• ${task.title}  (${task.progress}%)",
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .clickable {
-                                        editingTask = task
-                                        showSheet   = true
-                                    }
+                            TaskCard(
+                                title     = task.title,
+                                category  = task.category.ifBlank { task.description.ifBlank { "—" } },
+                                startTime = task.startTime.toDisplayTime(),
+                                endTime   = task.endTime.toDisplayTime(),
+                                progress  = (task.progress / 100f).coerceIn(0f, 1f),
+                                status    = task.status.toUi(),
+                                priority  = task.priority.toUi(),
+                                avatars   = emptyList(),
+                                onEdit    = {
+                                    editingTask = task
+                                    showSheet   = true
+                                },
+                                onDelete  = { viewModel.deleteTask(task) },
+                                onToggleComplete = {
+                                    val next = if (task.status == EntityTaskStatus.COMPLETED)
+                                        EntityTaskStatus.PENDING
+                                    else
+                                        EntityTaskStatus.COMPLETED
+                                    viewModel.setStatus(task, next)
+                                },
+                                modifier  = Modifier.clickable {
+                                    editingTask = task
+                                    showSheet   = true
+                                }
                             )
                         }
                     }
@@ -135,4 +159,26 @@ fun TaskListScreen(
             taskToEdit = editingTask          // null → Add mode, non-null → Edit mode
         )
     }
+}
+
+private val timeFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("hh a", Locale.getDefault())
+
+private fun Long.toDisplayTime(): String =
+    Instant.ofEpochMilli(this)
+        .atZone(ZoneId.systemDefault())
+        .format(timeFormatter)
+        .lowercase(Locale.getDefault())
+
+private fun EntityTaskStatus.toUi(): UiTaskStatus = when (this) {
+    EntityTaskStatus.PENDING   -> UiTaskStatus.PENDING
+    EntityTaskStatus.RUNNING   -> UiTaskStatus.RUNNING
+    EntityTaskStatus.COMPLETED -> UiTaskStatus.COMPLETED
+    EntityTaskStatus.CANCELLED -> UiTaskStatus.CANCELLED
+}
+
+private fun EntityPriority.toUi(): UiTaskPriority = when (this) {
+    EntityPriority.LOW    -> UiTaskPriority.LOW
+    EntityPriority.MEDIUM -> UiTaskPriority.MEDIUM
+    EntityPriority.HIGH   -> UiTaskPriority.HIGH
 }

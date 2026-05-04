@@ -60,6 +60,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.todolist.data.local.entity.Priority
 import com.example.todolist.data.local.entity.Task
 import com.example.todolist.data.local.entity.TaskStatus
 import com.example.todolist.ui.tasks.TaskViewModel
@@ -130,12 +131,15 @@ fun AddTaskSheet(
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
 
     val isEditMode = taskToEdit != null
-    val initial    = remember(taskToEdit) { InitialFormValues.from(taskToEdit) }
+    val initial    = remember(taskToEdit, selectedDate) {
+        InitialFormValues.from(taskToEdit, selectedDate)
+    }
 
     var title       by remember(taskToEdit) { mutableStateOf(initial.title) }
     var category    by remember(taskToEdit) { mutableStateOf(initial.category) }
     var description by remember(taskToEdit) { mutableStateOf(initial.description) }
     var status      by remember(taskToEdit) { mutableStateOf(initial.status) }
+    var priority    by remember(taskToEdit) { mutableStateOf(initial.priority) }
 
     val startState = rememberTimePickerState(
         initialHour   = initial.startHour,
@@ -150,8 +154,12 @@ fun AddTaskSheet(
     var showStart by remember { mutableStateOf(false) }
     var showEnd   by remember { mutableStateOf(false) }
 
-    val canSave = title.isNotBlank() &&
-            (endState.totalMinutes() > startState.totalMinutes())
+    val isToday      = selectedDate == LocalDate.now()
+    val nowMinutes   = LocalTime.now().run { hour * 60 + minute }
+    val startInPast  = isToday && startState.totalMinutes() < nowMinutes
+    val canSave      = title.isNotBlank() &&
+            (endState.totalMinutes() > startState.totalMinutes()) &&
+            !startInPast
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -255,13 +263,22 @@ fun AddTaskSheet(
                     modifier = Modifier.weight(1f)
                 )
             }
-            if (!canSave && title.isNotBlank()) {
-                Text(
-                    text     = "End time must be after start time",
-                    color    = Coral,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+            if (title.isNotBlank()) {
+                val errorMsg = when {
+                    startInPast                                                   ->
+                        "Start time can't be earlier than now for today"
+                    endState.totalMinutes() <= startState.totalMinutes()          ->
+                        "End time must be after start time"
+                    else -> null
+                }
+                if (errorMsg != null) {
+                    Text(
+                        text     = errorMsg,
+                        color    = Coral,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
             }
 
             Spacer(Modifier.height(20.dp))
@@ -284,6 +301,24 @@ fun AddTaskSheet(
 
             Spacer(Modifier.height(20.dp))
 
+            /* ---------- Priority chips ---------- */
+            FieldLabel("Priority")
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding        = PaddingValues(vertical = 4.dp),
+                modifier              = Modifier.fillMaxWidth()
+            ) {
+                items(items = Priority.values()) { p ->
+                    PriorityChipChoice(
+                        priority   = p,
+                        isSelected = p == priority,
+                        onClick    = { priority = p }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
             /* ---------- Team / avatars ---------- */
             FieldLabel("Team")
             TeamRow(avatars = SampleTeamAvatars, onAdd = { /* TODO */ })
@@ -299,6 +334,7 @@ fun AddTaskSheet(
                         category    = category.trim(),
                         description = description.trim(),
                         status      = status,
+                        priority    = priority,
                         date        = selectedDate,
                         startTime   = startState.toLocalTime(),
                         endTime     = endState.toLocalTime()
@@ -582,6 +618,7 @@ private fun buildTask(
     category: String,
     description: String,
     status: TaskStatus,
+    priority: Priority,
     date: LocalDate,
     startTime: LocalTime,
     endTime: LocalTime
@@ -604,7 +641,8 @@ private fun buildTask(
             startTime   = startMillis,
             endTime     = endMillis,
             progress    = initialProgress,
-            status      = status
+            status      = status,
+            priority    = priority
         )
     } else {
         val newProgress = if (status != existing.status) initialProgress else existing.progress
@@ -615,6 +653,7 @@ private fun buildTask(
             startTime   = startMillis,
             endTime     = endMillis,
             status      = status,
+            priority    = priority,
             progress    = newProgress
         )
     }
@@ -625,23 +664,30 @@ private data class InitialFormValues(
     val category: String,
     val description: String,
     val status: TaskStatus,
+    val priority: Priority,
     val startHour: Int,
     val startMinute: Int,
     val endHour: Int,
     val endMinute: Int
 ) {
     companion object {
-        fun from(task: Task?): InitialFormValues {
+        fun from(task: Task?, selectedDate: LocalDate): InitialFormValues {
             if (task == null) {
+                val start = smartDefaultStart(selectedDate)
+                val end   = start.plusHours(1).let {
+                    // Avoid wrapping past 23:59
+                    if (it.hour == 0 && start.hour == 23) LocalTime.of(23, 30) else it
+                }
                 return InitialFormValues(
                     title       = "",
                     category    = "",
                     description = "",
                     status      = TaskStatus.PENDING,
-                    startHour   = 9,
-                    startMinute = 0,
-                    endHour     = 10,
-                    endMinute   = 0
+                    priority    = Priority.MEDIUM,
+                    startHour   = start.hour,
+                    startMinute = start.minute,
+                    endHour     = end.hour,
+                    endMinute   = end.minute
                 )
             }
             val zone  = ZoneId.systemDefault()
@@ -652,10 +698,83 @@ private data class InitialFormValues(
                 category    = task.category,
                 description = task.description,
                 status      = task.status,
+                priority    = task.priority,
                 startHour   = start.hour,
                 startMinute = start.minute,
                 endHour     = end.hour,
                 endMinute   = end.minute
+            )
+        }
+    }
+}
+
+/**
+ * Smart "fresh start" suggestion for a new task's start time.
+ *  - Today          → next whole hour after now (capped at 23:00).
+ *  - Future date    → 09:00 (a clean morning start).
+ *  - Past date      → 09:00 (the form will block save anyway).
+ */
+private fun smartDefaultStart(date: LocalDate): LocalTime {
+    val today = LocalDate.now()
+    if (date != today) return LocalTime.of(9, 0)
+
+    val now = LocalTime.now()
+    val nextHour = if (now.minute == 0) now.hour else now.hour + 1
+    return when {
+        nextHour >= 23 -> LocalTime.of(23, 0)
+        else           -> LocalTime.of(nextHour, 0)
+    }
+}
+
+@Composable
+private fun PriorityChipChoice(
+    priority: Priority,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val accent = when (priority) {
+        Priority.LOW    -> MintGreen
+        Priority.MEDIUM -> Lavender
+        Priority.HIGH   -> Cyan
+    }
+    val bg     = if (isSelected) accent else BgChip
+    val fg     = if (isSelected) {
+        when (priority) {
+            Priority.LOW    -> OnMint
+            Priority.MEDIUM -> OnLavender
+            Priority.HIGH   -> OnCyan
+        }
+    } else accent
+    val border = if (isSelected) accent else BorderSubtle
+    val label  = when (priority) {
+        Priority.LOW    -> "Low"
+        Priority.MEDIUM -> "Medium"
+        Priority.HIGH   -> "High"
+    }
+
+    Surface(
+        onClick  = onClick,
+        shape    = RoundedCornerShape(20.dp),
+        color    = bg,
+        border   = BorderStroke(1.dp, border),
+        modifier = Modifier.height(40.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (isSelected) fg.copy(alpha = 0.7f) else accent)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text       = label,
+                color      = fg,
+                fontSize   = 13.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }

@@ -9,6 +9,8 @@ import androidx.room.PrimaryKey
  */
 enum class TaskStatus { PENDING, RUNNING, COMPLETED, CANCELLED }
 
+enum class Priority { LOW, MEDIUM, HIGH }
+
 /**
  * Room entity for a single to-do item.
  *
@@ -32,6 +34,8 @@ data class Task(
     val progress: Int = 0,
 
     val status: TaskStatus = TaskStatus.PENDING,
+
+    val priority: Priority = Priority.MEDIUM,
 
     val category: String = "",
 
