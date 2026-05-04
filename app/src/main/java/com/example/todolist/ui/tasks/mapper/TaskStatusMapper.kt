@@ -36,11 +36,8 @@ fun UiStatus.toDataStatus(): DataStatus = when (this) {
  *  Convenience getters used by the card UI
  * ============================================================= */
 
-/** Pastel card background. */
-val DataStatus.background: Color get() = toUiStatus().background
-
-/** Accent color used by the tab pill, progress bar and percentage. */
-val DataStatus.accent: Color get() = toUiStatus().tabColor
+/** Accent color used by the status tab, progress bar and percentage. */
+val DataStatus.accent: Color get() = toUiStatus().accent
 
 /** Display label, e.g. "Completed". */
 val DataStatus.label: String get() = toUiStatus().label

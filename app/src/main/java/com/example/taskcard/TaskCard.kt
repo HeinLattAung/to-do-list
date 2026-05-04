@@ -27,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -49,43 +48,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /* ------------------------------------------------------------------
- *  TaskStatus  -  drives the colour palette + label of the tab
+ *  Premium dark card palette
+ * ------------------------------------------------------------------ */
+private val CardTop      = Color(0xFF1F2937)   // subtle elevation top
+private val CardBottom   = Color(0xFF161E2C)   // slightly deeper bottom
+private val CardOnPrimary   = Color(0xFFF9FAFB) // near-white title
+private val CardOnSecondary = Color(0xFFB8C0CC) // muted gray body
+private val CardOnTertiary  = Color(0xFF8B95A4) // faint label
+private val CardDivider     = Color(0x33FFFFFF) // dashed line
+private val CardOnAccent    = Color(0xFF0B1220) // dark text on light accent
+private val CardDangerRed   = Color(0xFFFF6B6B)
+
+/* ------------------------------------------------------------------
+ *  TaskStatus  -  drives the accent color used by the tab,
+ *  progress bar, and completion badge.
  * ------------------------------------------------------------------ */
 enum class TaskStatus(
     val label: String,
-    val background: Color,
-    val backgroundDeep: Color,
-    val tabColor: Color,
-    val onCard: Color
+    val accent: Color
 ) {
-    COMPLETED(
-        label          = "Completed",
-        background     = Color(0xFFD9F2E3),
-        backgroundDeep = Color(0xFFC2E5D0),
-        tabColor       = Color(0xFF34A853),
-        onCard         = Color(0xFF0E1B14)
-    ),
-    RUNNING(
-        label          = "Running",
-        background     = Color(0xFFD8E6FB),
-        backgroundDeep = Color(0xFFBFD2F1),
-        tabColor       = Color(0xFF1A73E8),
-        onCard         = Color(0xFF0E1A2E)
-    ),
-    PENDING(
-        label          = "Pending",
-        background     = Color(0xFFE6DCF7),
-        backgroundDeep = Color(0xFFCFC1EC),
-        tabColor       = Color(0xFF7B5BD6),
-        onCard         = Color(0xFF1B1530)
-    ),
-    CANCELLED(
-        label          = "Rejected",
-        background     = Color(0xFFFFE0E0),
-        backgroundDeep = Color(0xFFF4C5C5),
-        tabColor       = Color(0xFFD93025),
-        onCard         = Color(0xFF301212)
-    )
+    COMPLETED("Completed", Color(0xFFC1FF72)), // Mint Green
+    RUNNING  ("Running",   Color(0xFFE1BEE7)), // Lavender
+    PENDING  ("Pending",   Color(0xFF00E5FF)), // Cyan
+    CANCELLED("Rejected",  Color(0xFFFF8A8A))  // Coral
 }
 
 /* ------------------------------------------------------------------
@@ -98,12 +83,11 @@ enum class TaskPriority(val label: String, val color: Color) {
 }
 
 /* ------------------------------------------------------------------
- *  TaskTabShape - a rounded rectangle whose top-left corner has a
- *  small "tab" cut-out where the status pill will sit.
+ *  TaskTabShape - rounded rectangle with a "tab" cut-out at top-left
  * ------------------------------------------------------------------ */
 class TaskTabShape(
     private val cornerRadius: androidx.compose.ui.unit.Dp = 22.dp,
-    private val tabWidth: androidx.compose.ui.unit.Dp     = 118.dp,
+    private val tabWidth: androidx.compose.ui.unit.Dp     = 122.dp,
     private val tabHeight: androidx.compose.ui.unit.Dp    = 34.dp,
     private val tabRadius: androidx.compose.ui.unit.Dp    = 18.dp
 ) : Shape {
@@ -169,7 +153,7 @@ class TaskTabShape(
 @Composable
 private fun DashedVerticalLine(
     modifier: Modifier = Modifier,
-    color: Color = Color.DarkGray.copy(alpha = 0.45f)
+    color: Color = CardDivider
 ) {
     Canvas(modifier = modifier.width(2.dp)) {
         drawLine(
@@ -187,7 +171,7 @@ private fun OverlappingAvatars(
     avatars: List<Painter>,
     size: androidx.compose.ui.unit.Dp = 26.dp,
     overlap: androidx.compose.ui.unit.Dp = 9.dp,
-    borderColor: Color = Color.White
+    borderColor: Color = CardTop
 ) {
     if (avatars.isEmpty()) return
     Box {
@@ -202,42 +186,24 @@ private fun OverlappingAvatars(
                 border    = androidx.compose.foundation.BorderStroke(2.dp, borderColor)
             ) {
                 androidx.compose.foundation.Image(
-                    painter           = painter,
+                    painter            = painter,
                     contentDescription = "Member avatar",
-                    modifier          = Modifier
+                    modifier           = Modifier
                         .size(size)
                         .clip(CircleShape)
                 )
-            }
-        }
-        if (avatars.size > 4) {
-            Surface(
-                modifier = Modifier
-                    .padding(start = (size - overlap) * 4)
-                    .size(size),
-                shape    = CircleShape,
-                color    = Color(0xFFEFEFEF)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text       = "+${avatars.size - 4}",
-                        fontSize   = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color      = Color.DarkGray
-                    )
-                }
             }
         }
     }
 }
 
 @Composable
-private fun PriorityChip(priority: TaskPriority, onCard: Color) {
+private fun PriorityChip(priority: TaskPriority) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(priority.color.copy(alpha = 0.22f))
+            .background(priority.color.copy(alpha = 0.18f))
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Box(
@@ -249,7 +215,7 @@ private fun PriorityChip(priority: TaskPriority, onCard: Color) {
         Spacer(Modifier.width(6.dp))
         Text(
             text       = priority.label,
-            color      = onCard.copy(alpha = 0.85f),
+            color      = priority.color,
             fontSize   = 11.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -277,41 +243,38 @@ fun TaskCard(
     val shape       = TaskTabShape()
     val isCompleted = status == TaskStatus.COMPLETED
 
-    val cardAlpha by animateColorAsState(
-        targetValue   = if (isCompleted) Color.White.copy(alpha = 0.78f) else Color.White,
+    val titleAlpha by animateColorAsState(
+        targetValue   = if (isCompleted) CardOnPrimary.copy(alpha = 0.55f) else CardOnPrimary,
         animationSpec = tween(220),
-        label         = "cardAlpha"
+        label         = "titleColor"
     )
 
     var menuExpanded by remember { mutableStateOf(false) }
 
-    val cardBrush = Brush.verticalGradient(
-        colors = listOf(status.background, status.backgroundDeep)
-    )
-    val tabBrush = Brush.horizontalGradient(
-        colors = listOf(status.tabColor, status.tabColor.copy(alpha = 0.82f))
+    val cardBrush = Brush.verticalGradient(colors = listOf(CardTop, CardBottom))
+    val tabBrush  = Brush.horizontalGradient(
+        colors = listOf(status.accent, status.accent.copy(alpha = 0.85f))
     )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(176.dp)
-            .alpha(cardAlpha.alpha)
             .clip(shape)
             .background(cardBrush)
     ) {
-        /* ---------- Status tab ---------- */
+        /* ---------- Status tab (uses status.accent — Mint for Completed) ---------- */
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .height(34.dp)
-                .width(136.dp)
+                .width(140.dp)
                 .background(tabBrush),
             contentAlignment = Alignment.CenterStart
         ) {
             Text(
                 text       = status.label,
-                color      = Color.White,
+                color      = CardOnAccent,
                 fontSize   = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier   = Modifier.padding(start = 18.dp)
@@ -336,7 +299,7 @@ fun TaskCard(
                     text       = startTime,
                     fontSize   = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color      = status.onCard.copy(alpha = 0.75f)
+                    color      = CardOnTertiary
                 )
                 DashedVerticalLine(
                     modifier = Modifier
@@ -347,7 +310,7 @@ fun TaskCard(
                     text       = endTime,
                     fontSize   = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color      = status.onCard.copy(alpha = 0.75f)
+                    color      = CardOnTertiary
                 )
             }
 
@@ -360,18 +323,18 @@ fun TaskCard(
                 Row(verticalAlignment = Alignment.Top) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text          = title,
-                            fontSize      = 18.sp,
-                            fontWeight    = FontWeight.ExtraBold,
-                            color         = status.onCard,
-                            maxLines      = 2,
+                            text           = title,
+                            fontSize       = 18.sp,
+                            fontWeight     = FontWeight.ExtraBold,
+                            color          = titleAlpha,
+                            maxLines       = 2,
                             textDecoration = if (isCompleted) TextDecoration.LineThrough else null
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text     = category,
                             fontSize = 12.sp,
-                            color    = status.onCard.copy(alpha = 0.65f)
+                            color    = CardOnSecondary.copy(alpha = 0.7f)
                         )
                     }
 
@@ -382,9 +345,9 @@ fun TaskCard(
                             modifier = Modifier.size(30.dp)
                         ) {
                             Icon(
-                                imageVector       = Icons.Default.MoreVert,
+                                imageVector        = Icons.Default.MoreVert,
                                 contentDescription = "More options",
-                                tint              = status.onCard.copy(alpha = 0.7f)
+                                tint               = CardOnSecondary
                             )
                         }
                         DropdownMenu(
@@ -392,47 +355,47 @@ fun TaskCard(
                             onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
-                                text    = { Text("Edit") },
+                                text        = { Text("Edit") },
                                 leadingIcon = {
                                     Icon(Icons.Default.Edit, contentDescription = null)
                                 },
-                                onClick = {
+                                onClick     = {
                                     menuExpanded = false
                                     onEdit()
                                 }
                             )
                             DropdownMenuItem(
-                                text    = {
-                                    Text(if (isCompleted) "Mark as Pending" else "Mark as Completed")
+                                text        = {
+                                    Text(if (isCompleted) "Mark as Pending" else "Mark as Done")
                                 },
                                 leadingIcon = {
                                     Icon(
-                                        imageVector       = if (isCompleted)
+                                        imageVector        = if (isCompleted)
                                             Icons.Outlined.RadioButtonUnchecked
                                         else
                                             Icons.Default.CheckCircle,
                                         contentDescription = null,
-                                        tint              = if (isCompleted)
+                                        tint               = if (isCompleted)
                                             Color.Unspecified
                                         else
-                                            TaskStatus.COMPLETED.tabColor
+                                            TaskStatus.COMPLETED.accent
                                     )
                                 },
-                                onClick = {
+                                onClick     = {
                                     menuExpanded = false
                                     onToggleComplete()
                                 }
                             )
                             DropdownMenuItem(
-                                text    = { Text("Delete", color = Color(0xFFD93025)) },
+                                text        = { Text("Delete", color = CardDangerRed) },
                                 leadingIcon = {
                                     Icon(
-                                        imageVector       = Icons.Default.Delete,
+                                        imageVector        = Icons.Default.Delete,
                                         contentDescription = null,
-                                        tint              = Color(0xFFD93025)
+                                        tint               = CardDangerRed
                                     )
                                 },
-                                onClick = {
+                                onClick     = {
                                     menuExpanded = false
                                     onDelete()
                                 }
@@ -443,38 +406,39 @@ fun TaskCard(
 
                 Spacer(Modifier.weight(1f))
 
-                /* Progress bar OR completed badge */
+                /* Progress bar OR completion badge */
                 if (isCompleted) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
-                            .background(status.tabColor.copy(alpha = 0.15f))
+                            .background(status.accent.copy(alpha = 0.18f))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Icon(
                             imageVector        = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint               = status.tabColor,
+                            contentDescription = "Completed",
+                            tint               = status.accent,
                             modifier           = Modifier.size(18.dp)
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text       = "Completed",
-                            color      = status.tabColor,
+                            text       = "Done",
+                            color      = status.accent,
                             fontSize   = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 } else {
                     LinearProgressIndicator(
-                        progress  = progress,
-                        modifier  = Modifier
+                        progress   = { progress },
+                        modifier   = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp)),
-                        color     = status.tabColor,
-                        trackColor = Color.White.copy(alpha = 0.65f)
+                        color      = status.accent,
+                        trackColor = Color.White.copy(alpha = 0.10f),
+                        drawStopIndicator = {} // suppress the M3 stop dot for a clean line
                     )
                 }
 
@@ -489,14 +453,14 @@ fun TaskCard(
                         OverlappingAvatars(avatars = avatars)
                         Spacer(Modifier.width(10.dp))
                     }
-                    PriorityChip(priority = priority, onCard = status.onCard)
+                    PriorityChip(priority = priority)
                     Spacer(Modifier.weight(1f))
                     if (!isCompleted) {
                         Text(
                             text       = "${(progress * 100).toInt()}%",
                             fontSize   = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color      = status.tabColor
+                            color      = status.accent
                         )
                     }
                 }

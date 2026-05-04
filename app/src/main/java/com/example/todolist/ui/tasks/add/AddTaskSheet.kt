@@ -16,11 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
@@ -48,8 +49,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,8 +57,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.todolist.data.local.entity.Priority
 import com.example.todolist.data.local.entity.Task
 import com.example.todolist.data.local.entity.TaskStatus
@@ -68,7 +65,6 @@ import com.example.todolist.ui.theme.BgChip
 import com.example.todolist.ui.theme.BgElevated
 import com.example.todolist.ui.theme.BgInput
 import com.example.todolist.ui.theme.BgInputFocused
-import com.example.todolist.ui.theme.BgPrimary
 import com.example.todolist.ui.theme.BorderFocused
 import com.example.todolist.ui.theme.BorderSubtle
 import com.example.todolist.ui.theme.Coral
@@ -107,14 +103,6 @@ private fun TaskStatus.label(): String = when (this) {
     TaskStatus.PENDING   -> "Pending"
     TaskStatus.CANCELLED -> "Rejected"
 }
-
-/* Sample team avatars — replace with your real data source. */
-private val SampleTeamAvatars = listOf(
-    "https://i.pravatar.cc/64?img=12",
-    "https://i.pravatar.cc/64?img=33",
-    "https://i.pravatar.cc/64?img=47",
-    "https://i.pravatar.cc/64?img=51"
-)
 
 /* =============================================================
  *  Public composable
@@ -180,6 +168,7 @@ fun AddTaskSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp)
         ) {
@@ -317,13 +306,7 @@ fun AddTaskSheet(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
-
-            /* ---------- Team / avatars ---------- */
-            FieldLabel("Team")
-            TeamRow(avatars = SampleTeamAvatars, onAdd = { /* TODO */ })
-
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(40.dp))
 
             /* ---------- Save button ---------- */
             Button(
@@ -507,55 +490,6 @@ private fun StatusChip(
 }
 
 @Composable
-private fun TeamRow(avatars: List<String>, onAdd: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box {
-            avatars.take(4).forEachIndexed { i, url ->
-                Surface(
-                    modifier = Modifier
-                        .padding(start = (32 - 12).dp * i)
-                        .size(32.dp),
-                    shape    = CircleShape,
-                    color    = BgPrimary,
-                    border   = BorderStroke(2.dp, BgElevated)
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(url)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Member",
-                        contentScale       = ContentScale.Crop,
-                        modifier           = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.width(10.dp))
-
-        Surface(
-            onClick  = onAdd,
-            shape    = CircleShape,
-            color    = BgInput,
-            border   = BorderStroke(1.dp, BorderSubtle),
-            modifier = Modifier.size(32.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector       = Icons.Default.Add,
-                    contentDescription = "Add member",
-                    tint              = TextSecondary,
-                    modifier          = Modifier.size(18.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun TimePickerDialog(
     title: String,
     confirmColor: Color,
@@ -711,12 +645,12 @@ private data class InitialFormValues(
 /**
  * Smart "fresh start" suggestion for a new task's start time.
  *  - Today          → next whole hour after now (capped at 23:00).
- *  - Future date    → 09:00 (a clean morning start).
- *  - Past date      → 09:00 (the form will block save anyway).
+ *  - Future date    → 08:00 (a clean morning start).
+ *  - Past date      → 08:00 (the form will block save anyway).
  */
 private fun smartDefaultStart(date: LocalDate): LocalTime {
     val today = LocalDate.now()
-    if (date != today) return LocalTime.of(9, 0)
+    if (date != today) return LocalTime.of(8, 0)
 
     val now = LocalTime.now()
     val nextHour = if (now.minute == 0) now.hour else now.hour + 1
