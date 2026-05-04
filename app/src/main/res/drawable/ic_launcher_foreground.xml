@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive icon foreground — minimalist task list with mint check.
+  Drawn on a 108x108 viewport per Android adaptive-icon spec; the
+  outer 18dp on each side is the "safe zone" the launcher may crop.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Two task lines -->
+    <path
+        android:pathData="M 38,42 L 76,42"
+        android:strokeColor="#C1FF72"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 38,58 L 70,58"
+        android:strokeColor="#C1FF72"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.55" />
+
+    <!-- Big check mark -->
+    <path
+        android:pathData="M 30,72 L 46,84 L 78,52"
+        android:strokeColor="#C1FF72"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

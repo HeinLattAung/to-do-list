@@ -1,12 +1,10 @@
 package com.example.todolist.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -14,50 +12,47 @@ import androidx.core.view.WindowCompat
 /* =============================================================
  *  TodoAppTheme
  *  -----------------------------------------------------------
- *  Single dark-navy theme for the whole app. We register the
- *  pastel accents into Material 3's color slots so default
- *  components (FAB, ripple, focused borders) stay on-brand.
- *
- *  Status / nav bars are painted to match DarkNavy so the
- *  edge-to-edge canvas looks seamless. Light icons on dark.
+ *  Single dark theme for the whole app. Mint is the primary
+ *  accent (CTAs, FAB, focus); Lavender + Cyan back the other
+ *  status families. System bars match the canvas for a clean
+ *  edge-to-edge look.
  * ============================================================= */
 
-private val NavyColorScheme = darkColorScheme(
-    /* Primary = Completed-Green accent (used by FAB, focus rings) */
-    primary              = CompletedGreenAccent,
-    onPrimary            = Color.White,
-    primaryContainer     = CompletedGreen,
-    onPrimaryContainer   = TextOnLightPrimary,
+private val DarkColors = darkColorScheme(
+    /* Primary = Mint Green — used by FAB, primary button, selection ring */
+    primary              = MintGreen,
+    onPrimary            = OnMint,
+    primaryContainer     = MintGreenDim,
+    onPrimaryContainer   = OnMint,
 
-    /* Secondary = Running-Purple accent */
-    secondary            = RunningPurpleAccent,
-    onSecondary          = Color.White,
-    secondaryContainer   = RunningPurple,
-    onSecondaryContainer = TextOnLightPrimary,
+    /* Secondary = Lavender (Running family) */
+    secondary            = Lavender,
+    onSecondary          = OnLavender,
+    secondaryContainer   = LavenderDim,
+    onSecondaryContainer = OnLavender,
 
-    /* Tertiary = Rejected/Blue accent */
-    tertiary             = RejectedBlueAccent,
-    onTertiary           = Color.White,
-    tertiaryContainer    = RejectedBlue,
-    onTertiaryContainer  = TextOnLightPrimary,
+    /* Tertiary = Cyan (Pending / Rejected) */
+    tertiary             = Cyan,
+    onTertiary           = OnCyan,
+    tertiaryContainer    = CyanDim,
+    onTertiaryContainer  = OnCyan,
 
-    /* The canvas */
-    background           = DarkNavy,
-    onBackground         = TextOnDarkPrimary,
+    /* Canvas */
+    background           = BgPrimary,
+    onBackground         = TextPrimary,
 
-    /* Raised surfaces (sheets, dialogs) */
-    surface              = DarkNavyElevated,
-    onSurface            = TextOnDarkPrimary,
-    surfaceVariant       = NavyOverlay,
-    onSurfaceVariant     = TextOnDarkSecondary,
+    /* Raised surfaces — sheets, dialogs, cards */
+    surface              = BgElevated,
+    onSurface            = TextPrimary,
+    surfaceVariant       = BgInput,
+    onSurfaceVariant     = TextSecondary,
 
-    /* Errors */
-    error                = CancelledRedAccent,
-    onError              = Color.White,
-    errorContainer       = CancelledRed,
-    onErrorContainer     = TextOnLightPrimary,
+    error                = Coral,
+    onError              = TextPrimary,
+    errorContainer       = CoralDim,
+    onErrorContainer     = TextPrimary,
 
-    outline              = DarkNavyMuted,
+    outline              = BorderSubtle,
     outlineVariant       = DividerOnDark
 )
 
@@ -67,12 +62,8 @@ fun TodoAppTheme(content: @Composable () -> Unit) {
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-
-            // Paint the system bars to match the dark canvas.
-            window.statusBarColor     = DarkNavy.toArgb()
-            window.navigationBarColor = DarkNavy.toArgb()
-
-            // Light icons on the dark bars.
+            window.statusBarColor     = BgPrimary.toArgb()
+            window.navigationBarColor = BgPrimary.toArgb()
             val controller = WindowCompat.getInsetsController(window, view)
             controller.isAppearanceLightStatusBars     = false
             controller.isAppearanceLightNavigationBars = false
@@ -80,7 +71,7 @@ fun TodoAppTheme(content: @Composable () -> Unit) {
     }
 
     MaterialTheme(
-        colorScheme = NavyColorScheme,
+        colorScheme = DarkColors,
         typography  = AppTypography,
         content     = content
     )

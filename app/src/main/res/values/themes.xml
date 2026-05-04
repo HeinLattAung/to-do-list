@@ -2,12 +2,13 @@
 <resources>
     <!--
       Base theme used before Compose takes over. Compose's TodoAppTheme
-      overrides almost everything once setContent { ... } is called.
+      overrides everything once setContent { ... } runs, but matching
+      the canvas color here avoids a light flash on cold start.
     -->
     <style name="Theme.TodoList" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">#0F172A</item>
-        <item name="android:navigationBarColor">#0F172A</item>
-        <item name="android:windowBackground">#0F172A</item>
+        <item name="android:statusBarColor">#111827</item>
+        <item name="android:navigationBarColor">#111827</item>
+        <item name="android:windowBackground">#111827</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

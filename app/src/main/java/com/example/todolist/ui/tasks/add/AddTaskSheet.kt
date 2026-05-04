@@ -1,14 +1,26 @@
 package com.example.todolist.ui.tasks.add
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
@@ -16,7 +28,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -35,7 +46,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -43,33 +58,65 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.todolist.data.local.entity.Task
 import com.example.todolist.data.local.entity.TaskStatus
 import com.example.todolist.ui.tasks.TaskViewModel
+import com.example.todolist.ui.theme.BgChip
+import com.example.todolist.ui.theme.BgElevated
+import com.example.todolist.ui.theme.BgInput
+import com.example.todolist.ui.theme.BgInputFocused
+import com.example.todolist.ui.theme.BgPrimary
+import com.example.todolist.ui.theme.BorderFocused
+import com.example.todolist.ui.theme.BorderSubtle
+import com.example.todolist.ui.theme.Coral
+import com.example.todolist.ui.theme.Cyan
+import com.example.todolist.ui.theme.Lavender
+import com.example.todolist.ui.theme.MintGreen
+import com.example.todolist.ui.theme.OnCyan
+import com.example.todolist.ui.theme.OnLavender
+import com.example.todolist.ui.theme.OnMint
+import com.example.todolist.ui.theme.TextPrimary
+import com.example.todolist.ui.theme.TextSecondary
+import com.example.todolist.ui.theme.TextTertiary
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
 /* =============================================================
- *  Pastel palette — same colours used on TaskCard, kept in one
- *  place so this sheet stays visually consistent with the list.
+ *  Status → accent + label mapping
  * ============================================================= */
-private data class StatusPalette(val bg: Color, val accent: Color, val label: String)
-
-private fun TaskStatus.palette(): StatusPalette = when (this) {
-    TaskStatus.PENDING   -> StatusPalette(Color(0xFFE6DCF7), Color(0xFF7B5BD6), "Pending")
-    TaskStatus.RUNNING   -> StatusPalette(Color(0xFFD8E6FB), Color(0xFF1A73E8), "Running")
-    TaskStatus.COMPLETED -> StatusPalette(Color(0xFFD9F2E3), Color(0xFF34A853), "Completed")
-    TaskStatus.CANCELLED -> StatusPalette(Color(0xFFFFE0E0), Color(0xFFD93025), "Cancelled")
+private fun TaskStatus.accent(): Color = when (this) {
+    TaskStatus.COMPLETED -> MintGreen
+    TaskStatus.RUNNING   -> Lavender
+    TaskStatus.PENDING   -> Cyan
+    TaskStatus.CANCELLED -> Coral
 }
+private fun TaskStatus.onAccent(): Color = when (this) {
+    TaskStatus.COMPLETED -> OnMint
+    TaskStatus.RUNNING   -> OnLavender
+    TaskStatus.PENDING   -> OnCyan
+    TaskStatus.CANCELLED -> Color.White
+}
+private fun TaskStatus.label(): String = when (this) {
+    TaskStatus.COMPLETED -> "Completed"
+    TaskStatus.RUNNING   -> "Running"
+    TaskStatus.PENDING   -> "Pending"
+    TaskStatus.CANCELLED -> "Rejected"
+}
+
+/* Sample team avatars — replace with your real data source. */
+private val SampleTeamAvatars = listOf(
+    "https://i.pravatar.cc/64?img=12",
+    "https://i.pravatar.cc/64?img=33",
+    "https://i.pravatar.cc/64?img=47",
+    "https://i.pravatar.cc/64?img=51"
+)
 
 /* =============================================================
  *  Public composable
- *  -----------------------------------------------------------
- *  Pass `taskToEdit = null` (or omit it) for a brand-new task.
- *  Pass an existing Task to enter Edit mode — fields come pre-
- *  filled and Save calls viewModel.updateTask() instead of add.
  * ============================================================= */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,19 +130,13 @@ fun AddTaskSheet(
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
 
     val isEditMode = taskToEdit != null
+    val initial    = remember(taskToEdit) { InitialFormValues.from(taskToEdit) }
 
-    /* ---------- Derive initial values once per opening ---------- */
-    val initial = remember(taskToEdit) {
-        InitialFormValues.from(taskToEdit)
-    }
-
-    /* ---------- Form state, seeded from taskToEdit when present ---------- */
     var title       by remember(taskToEdit) { mutableStateOf(initial.title) }
     var category    by remember(taskToEdit) { mutableStateOf(initial.category) }
     var description by remember(taskToEdit) { mutableStateOf(initial.description) }
-    var status      by remember(taskToEdit) { mutableStateOf(initial.uiStatus) }
+    var status      by remember(taskToEdit) { mutableStateOf(initial.status) }
 
-    /* ---------- Time picker state, seeded from taskToEdit ---------- */
     val startState = rememberTimePickerState(
         initialHour   = initial.startHour,
         initialMinute = initial.startMinute,
@@ -109,24 +150,30 @@ fun AddTaskSheet(
     var showStart by remember { mutableStateOf(false) }
     var showEnd   by remember { mutableStateOf(false) }
 
-    /* ---------- Validation ---------- */
     val canSave = title.isNotBlank() &&
             (endState.totalMinutes() > startState.totalMinutes())
-
-    val accent = status.palette().accent
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState       = sheetState,
         shape            = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-        containerColor   = Color.White,
-        dragHandle       = null
+        containerColor   = BgElevated,
+        contentColor     = TextPrimary,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 12.dp)
+                    .size(width = 40.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(TextTertiary.copy(alpha = 0.4f))
+            )
+        }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp)
+                .padding(bottom = 28.dp)
         ) {
 
             /* ---------- Header ---------- */
@@ -134,62 +181,58 @@ fun AddTaskSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 16.dp)
+                    .padding(top = 12.dp, bottom = 20.dp)
             ) {
                 Text(
-                    text       = if (isEditMode) "Edit Task" else "New Task",
-                    fontSize   = 20.sp,
+                    text       = if (isEditMode) "Edit Task" else "Create New Task",
+                    fontSize   = 22.sp,
                     fontWeight = FontWeight.Bold,
+                    color      = TextPrimary,
                     modifier   = Modifier.weight(1f)
                 )
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Close")
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = TextSecondary
+                    )
                 }
             }
 
             /* ---------- Title ---------- */
-            FieldLabel("Title")
-            OutlinedTextField(
-                value          = title,
-                onValueChange  = { title = it },
-                placeholder    = { Text("e.g. UI/UX Wireframes") },
-                singleLine     = true,
-                shape          = RoundedCornerShape(16.dp),
-                colors         = pastelFieldColors(accent),
-                modifier       = Modifier.fillMaxWidth()
+            FieldLabel("Task Title")
+            DarkTextField(
+                value         = title,
+                onValueChange = { title = it },
+                placeholder   = "e.g. UI/UX Wireframes",
+                singleLine    = true
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
 
             /* ---------- Category ---------- */
             FieldLabel("Category")
-            OutlinedTextField(
-                value          = category,
-                onValueChange  = { category = it },
-                placeholder    = { Text("e.g. Design Sprint") },
-                singleLine     = true,
-                shape          = RoundedCornerShape(16.dp),
-                colors         = pastelFieldColors(accent),
-                modifier       = Modifier.fillMaxWidth()
+            DarkTextField(
+                value         = category,
+                onValueChange = { category = it },
+                placeholder   = "e.g. Design Sprint",
+                singleLine    = true
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
 
-            /* ---------- Description (optional) ---------- */
+            /* ---------- Description ---------- */
             FieldLabel("Description")
-            OutlinedTextField(
-                value          = description,
-                onValueChange  = { description = it },
-                placeholder    = { Text("Add notes (optional)") },
-                shape          = RoundedCornerShape(16.dp),
-                colors         = pastelFieldColors(accent),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                minLines       = 2,
-                maxLines        = 4,
-                modifier       = Modifier.fillMaxWidth()
+            DarkTextField(
+                value         = description,
+                onValueChange = { description = it },
+                placeholder   = "Add notes (optional)",
+                singleLine    = false,
+                minLines      = 2,
+                maxLines      = 4
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(20.dp))
 
             /* ---------- Time row ---------- */
             FieldLabel("Time")
@@ -198,30 +241,30 @@ fun AddTaskSheet(
                 modifier              = Modifier.fillMaxWidth()
             ) {
                 TimeChip(
-                    label     = "Start",
-                    text      = startState.formatLabel(),
-                    accent    = accent,
-                    onClick   = { showStart = true },
-                    modifier  = Modifier.weight(1f)
+                    label    = "Start",
+                    text     = startState.formatLabel(),
+                    onClick  = { showStart = true },
+                    accent   = status.accent(),
+                    modifier = Modifier.weight(1f)
                 )
                 TimeChip(
-                    label     = "End",
-                    text      = endState.formatLabel(),
-                    accent    = accent,
-                    onClick   = { showEnd = true },
-                    modifier  = Modifier.weight(1f)
+                    label    = "End",
+                    text     = endState.formatLabel(),
+                    onClick  = { showEnd = true },
+                    accent   = status.accent(),
+                    modifier = Modifier.weight(1f)
                 )
             }
             if (!canSave && title.isNotBlank()) {
                 Text(
                     text     = "End time must be after start time",
-                    color    = Color(0xFFD93025),
+                    color    = Coral,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(top = 6.dp)
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(20.dp))
 
             /* ---------- Status chips ---------- */
             FieldLabel("Status")
@@ -232,14 +275,20 @@ fun AddTaskSheet(
             ) {
                 items(items = TaskStatus.values()) { s ->
                     StatusChip(
-                        status      = s,
-                        isSelected  = s == status,
-                        onClick     = { status = s }
+                        status     = s,
+                        isSelected = s == status,
+                        onClick    = { status = s }
                     )
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
+
+            /* ---------- Team / avatars ---------- */
+            FieldLabel("Team")
+            TeamRow(avatars = SampleTeamAvatars, onAdd = { /* TODO */ })
+
+            Spacer(Modifier.height(28.dp))
 
             /* ---------- Save button ---------- */
             Button(
@@ -254,27 +303,28 @@ fun AddTaskSheet(
                         startTime   = startState.toLocalTime(),
                         endTime     = endState.toLocalTime()
                     )
-                    if (taskToEdit == null) viewModel.addTask(task)
-                    else                    viewModel.updateTask(task)
+                    if (taskToEdit == null) viewModel.addTask(task) else viewModel.updateTask(task)
 
                     scope.launch { sheetState.hide() }.invokeOnCompletion {
                         if (!sheetState.isVisible) onDismiss()
                     }
                 },
                 enabled  = canSave,
-                shape    = RoundedCornerShape(20.dp),
+                shape    = RoundedCornerShape(18.dp),
                 colors   = ButtonDefaults.buttonColors(
-                    containerColor = accent,
-                    contentColor   = Color.White
+                    containerColor         = MintGreen,
+                    contentColor           = OnMint,
+                    disabledContainerColor = MintGreen.copy(alpha = 0.35f),
+                    disabledContentColor   = OnMint.copy(alpha = 0.7f)
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(56.dp)
             ) {
                 Text(
-                    text       = if (isEditMode) "Update Task" else "Save Task",
+                    text       = if (isEditMode) "Update Task" else "Create Task",
                     fontSize   = 16.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -284,7 +334,7 @@ fun AddTaskSheet(
     if (showStart) {
         TimePickerDialog(
             title        = "Select start time",
-            confirmColor = accent,
+            confirmColor = status.accent(),
             onDismiss    = { showStart = false },
             onConfirm    = { showStart = false }
         ) { TimePicker(state = startState) }
@@ -292,7 +342,7 @@ fun AddTaskSheet(
     if (showEnd) {
         TimePickerDialog(
             title        = "Select end time",
-            confirmColor = accent,
+            confirmColor = status.accent(),
             onDismiss    = { showEnd = false },
             onConfirm    = { showEnd = false }
         ) { TimePicker(state = endState) }
@@ -309,8 +359,49 @@ private fun FieldLabel(text: String) {
         text       = text,
         fontSize   = 13.sp,
         fontWeight = FontWeight.Medium,
-        color      = Color(0xFF555555),
-        modifier   = Modifier.padding(bottom = 6.dp)
+        color      = TextSecondary,
+        modifier   = Modifier.padding(bottom = 8.dp)
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DarkTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else 4
+) {
+    OutlinedTextField(
+        value           = value,
+        onValueChange   = onValueChange,
+        placeholder     = { Text(placeholder, color = TextTertiary, fontSize = 14.sp) },
+        singleLine      = singleLine,
+        minLines        = minLines,
+        maxLines        = maxLines,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+        textStyle       = TextStyle(
+            color      = TextPrimary,
+            fontSize   = 15.sp,
+            fontWeight = FontWeight.Medium
+        ),
+        shape           = RoundedCornerShape(14.dp),
+        colors          = OutlinedTextFieldDefaults.colors(
+            focusedTextColor          = TextPrimary,
+            unfocusedTextColor        = TextPrimary,
+            focusedContainerColor     = BgInputFocused,
+            unfocusedContainerColor   = BgInput,
+            disabledContainerColor    = BgInput,
+            cursorColor               = MintGreen,
+            focusedBorderColor        = BorderFocused,
+            unfocusedBorderColor      = BorderSubtle,
+            disabledBorderColor       = BorderSubtle,
+            focusedPlaceholderColor   = TextTertiary,
+            unfocusedPlaceholderColor = TextTertiary
+        ),
+        modifier = Modifier.fillMaxWidth()
     )
 }
 
@@ -323,11 +414,10 @@ private fun TimeChip(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        onClick     = onClick,
-        shape       = RoundedCornerShape(16.dp),
-        color       = Color(0xFFF5F5F7),
-        modifier    = modifier
-            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(16.dp))
+        onClick  = onClick,
+        shape    = RoundedCornerShape(14.dp),
+        color    = BgInput,
+        modifier = modifier.border(1.dp, BorderSubtle, RoundedCornerShape(14.dp))
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -341,8 +431,8 @@ private fun TimeChip(
             )
             Spacer(Modifier.width(10.dp))
             Column {
-                Text(label, fontSize = 11.sp, color = Color.Gray)
-                Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(label, fontSize = 11.sp, color = TextTertiary)
+                Text(text,  fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
             }
         }
     }
@@ -354,14 +444,16 @@ private fun StatusChip(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val palette = status.palette()
-    val bg      = if (isSelected) palette.accent else palette.bg
-    val fg      = if (isSelected) Color.White else palette.accent
+    val accent = status.accent()
+    val bg     = if (isSelected) accent else BgChip
+    val fg     = if (isSelected) status.onAccent() else accent
+    val border = if (isSelected) accent else BorderSubtle
 
     Surface(
-        onClick = onClick,
-        shape   = RoundedCornerShape(20.dp),
-        color   = bg,
+        onClick  = onClick,
+        shape    = RoundedCornerShape(20.dp),
+        color    = bg,
+        border   = BorderStroke(1.dp, border),
         modifier = Modifier.height(40.dp)
     ) {
         Box(
@@ -369,7 +461,7 @@ private fun StatusChip(
             modifier = Modifier.padding(horizontal = 18.dp)
         ) {
             Text(
-                text       = palette.label,
+                text       = status.label(),
                 color      = fg,
                 fontSize   = 13.sp,
                 fontWeight = FontWeight.SemiBold
@@ -378,9 +470,55 @@ private fun StatusChip(
     }
 }
 
-/* =============================================================
- *  Time-picker dialog wrapper — Material 3 doesn't ship one.
- * ============================================================= */
+@Composable
+private fun TeamRow(avatars: List<String>, onAdd: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box {
+            avatars.take(4).forEachIndexed { i, url ->
+                Surface(
+                    modifier = Modifier
+                        .padding(start = (32 - 12).dp * i)
+                        .size(32.dp),
+                    shape    = CircleShape,
+                    color    = BgPrimary,
+                    border   = BorderStroke(2.dp, BgElevated)
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(url)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Member",
+                        contentScale       = ContentScale.Crop,
+                        modifier           = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.width(10.dp))
+
+        Surface(
+            onClick  = onAdd,
+            shape    = CircleShape,
+            color    = BgInput,
+            border   = BorderStroke(1.dp, BorderSubtle),
+            modifier = Modifier.size(32.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector       = Icons.Default.Add,
+                    contentDescription = "Add member",
+                    tint              = TextSecondary,
+                    modifier          = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun TimePickerDialog(
     title: String,
@@ -392,16 +530,15 @@ private fun TimePickerDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape    = RoundedCornerShape(28.dp),
-            color    = Color.White,
+            color    = BgElevated,
             modifier = Modifier.padding(8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text       = title,
                     fontSize   = 16.sp,
                     fontWeight = FontWeight.SemiBold,
+                    color      = TextPrimary,
                     modifier   = Modifier.padding(bottom = 16.dp)
                 )
                 content()
@@ -411,8 +548,10 @@ private fun TimePickerDialog(
                         .fillMaxWidth()
                         .padding(top = 12.dp)
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel", color = Color.Gray) }
-                    TextButton(onClick = onConfirm) { Text("OK", color = confirmColor, fontWeight = FontWeight.Bold) }
+                    TextButton(onClick = onDismiss) { Text("Cancel", color = TextSecondary) }
+                    TextButton(onClick = onConfirm) {
+                        Text("OK", color = confirmColor, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -437,24 +576,6 @@ private fun TimePickerState.formatLabel(): String {
     return "%02d:%02d %s".format(h12, lt.minute, ampm)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun pastelFieldColors(accent: Color) =
-    OutlinedTextFieldDefaults.colors(
-        focusedBorderColor   = accent,
-        unfocusedBorderColor = Color(0xFFE0E0E0),
-        cursorColor          = accent,
-        focusedContainerColor   = Color(0xFFFAFAFA),
-        unfocusedContainerColor = Color(0xFFFAFAFA)
-    )
-
-/**
- * Build a Task from form fields.
- *  - In Add mode  (existing == null) → returns a fresh Task with id = 0 (Room
- *    will auto-generate one) and a default initial progress.
- *  - In Edit mode (existing != null) → preserves id, createdAt and progress
- *    so the row is updated in place rather than duplicated.
- */
 private fun buildTask(
     existing: Task?,
     title: String,
@@ -486,7 +607,6 @@ private fun buildTask(
             status      = status
         )
     } else {
-        // Preserve id + createdAt; auto-update progress only when status changed
         val newProgress = if (status != existing.status) initialProgress else existing.progress
         existing.copy(
             title       = title,
@@ -500,15 +620,11 @@ private fun buildTask(
     }
 }
 
-/* =============================================================
- *  Holds the initial values used to seed form state when the sheet
- *  opens. Calculated once via remember(taskToEdit).
- * ============================================================= */
 private data class InitialFormValues(
     val title: String,
     val category: String,
     val description: String,
-    val uiStatus: TaskStatus,
+    val status: TaskStatus,
     val startHour: Int,
     val startMinute: Int,
     val endHour: Int,
@@ -521,7 +637,7 @@ private data class InitialFormValues(
                     title       = "",
                     category    = "",
                     description = "",
-                    uiStatus    = TaskStatus.PENDING,
+                    status      = TaskStatus.PENDING,
                     startHour   = 9,
                     startMinute = 0,
                     endHour     = 10,
@@ -535,7 +651,7 @@ private data class InitialFormValues(
                 title       = task.title,
                 category    = task.category,
                 description = task.description,
-                uiStatus    = task.status,
+                status      = task.status,
                 startHour   = start.hour,
                 startMinute = start.minute,
                 endHour     = end.hour,

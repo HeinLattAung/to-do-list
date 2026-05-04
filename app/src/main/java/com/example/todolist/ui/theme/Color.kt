@@ -3,64 +3,59 @@ package com.example.todolist.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /* =============================================================
- *  PALETTE — single source of truth for the whole app.
+ *  PALETTE — premium dark theme.
  *
- *  Dark-navy canvas with three pastel card families:
- *    Completed = Light green
- *    Running   = Light purple
- *    Rejected  = Sky blue
- *
- *  Each family has a *card background* (soft pastel) and an
- *  *accent* (deeper saturated tone) used by the status pill,
- *  progress bar and percentage label.
+ *  Surfaces: deep navy/charcoal.
+ *  Accents : Mint, Cyan, Lavender — used as both the chip color
+ *            on a card AND as the accent (filled progress bar,
+ *            FAB, primary button).
+ *  Text    : near-white primary, soft gray secondary.
  * ============================================================= */
 
-/* ---------- Surface / canvas ---------- */
-val DarkNavy             = Color(0xFF0F172A)   // app background
-val DarkNavyElevated     = Color(0xFF1E293B)   // raised surfaces (sheets, dialogs)
-val DarkNavyMuted        = Color(0xFF334155)   // borders, dividers on dark
-val NavyOverlay          = Color(0xFF111B33)   // soft lift behind sections
+/* ---------- Surfaces ---------- */
+val BgPrimary        = Color(0xFF111827)   // app canvas
+val BgElevated       = Color(0xFF1F2937)   // sheets, dialogs
+val BgInput          = Color(0xFF1F2937)   // text-field fill (unfocused)
+val BgInputFocused   = Color(0xFF26303F)   // text-field fill (focused)
+val BgChip           = Color(0xFF1F2937)   // unselected status chip
+val BgCard           = Color(0xFF1A2231)   // task card background
 
-/* ---------- Status: Completed (green) ---------- */
-val CompletedGreen       = Color(0xFFD9E9A4)   // card background
-val CompletedGreenAccent = Color(0xFFB5C96D)   // pill / progress / %
+/* ---------- Borders / dividers ---------- */
+val BorderSubtle     = Color(0xFF2B3445)   // 1dp outline on inputs / chips
+val BorderFocused    = Color(0xFF3B475D)
+val DividerOnDark    = Color(0x33FFFFFF)
 
-/* ---------- Status: Running (purple) ---------- */
-val RunningPurple        = Color(0xFFD6C8E8)
-val RunningPurpleAccent  = Color(0xFFB19DCD)
+/* ---------- Accent: Mint (Completed / primary CTA) ---------- */
+val MintGreen        = Color(0xFFC1FF72)
+val MintGreenDim     = Color(0xFF9BD050)
+val OnMint           = Color(0xFF0B1220)
 
-/* ---------- Status: Rejected / Pending (blue) ---------- */
-val RejectedBlue         = Color(0xFF63D3F2)
-val RejectedBlueAccent   = Color(0xFF4ABBD9)
+/* ---------- Accent: Cyan (Rejected / Pending) ---------- */
+val Cyan             = Color(0xFF00E5FF)
+val CyanDim          = Color(0xFF00B8CC)
+val OnCyan           = Color(0xFF0B1220)
 
-/* ---------- Status: Cancelled (red) — kept for completeness ---------- */
-val CancelledRed         = Color(0xFFFFBDBD)
-val CancelledRedAccent   = Color(0xFFE05656)
+/* ---------- Accent: Lavender (Running) ---------- */
+val Lavender         = Color(0xFFE1BEE7)
+val LavenderDim      = Color(0xFFB89BBE)
+val OnLavender       = Color(0xFF0B1220)
 
-/* ---------- Text on dark canvas ---------- */
-val TextOnDarkPrimary    = Color(0xFFF8FAFC)   // headlines on navy
-val TextOnDarkSecondary  = Color(0xFFCBD5E1)   // body on navy
-val TextOnDarkTertiary   = Color(0xFF94A3B8)   // muted labels (e.g. day-of-week)
+/* ---------- Accent: Coral (Cancelled / destructive) ---------- */
+val Coral            = Color(0xFFFF8A8A)
+val CoralDim         = Color(0xFFD66E6E)
 
-/* ---------- Text on pastel cards (dark navy reads well on light pastels) ---------- */
-val TextOnLightPrimary   = Color(0xFF0F172A)
-val TextOnLightSecondary = Color(0xFF334155)
+/* ---------- Text on dark ---------- */
+val TextPrimary      = Color(0xFFF9FAFB)
+val TextSecondary    = Color(0xFFB8C0CC)
+val TextTertiary     = Color(0xFF8B95A4)
+val TextOnAccent     = Color(0xFF0B1220)
 
-/* ---------- Misc ---------- */
-val DividerOnDark        = Color(0x33FFFFFF)   // 20% white
-val DashedTimeline       = Color(0xFFCBD5E1)   // dashed line in time column
-val AvatarBorder         = Color.White
-
-/* =============================================================
- *  StatusPalette helper — pairs background, accent, label so the
- *  card composable can call task.status.palette() and pull all
- *  three at once.
- * ============================================================= */
-data class StatusPalette(val background: Color, val accent: Color, val label: String)
+/* ---------- Status palette helper ---------- */
+data class StatusPalette(val accent: Color, val onAccent: Color, val label: String)
 
 object StatusPalettes {
-    val Completed = StatusPalette(CompletedGreen, CompletedGreenAccent, "Completed")
-    val Running   = StatusPalette(RunningPurple,  RunningPurpleAccent,  "Running")
-    val Pending   = StatusPalette(RejectedBlue,   RejectedBlueAccent,   "Pending")
-    val Cancelled = StatusPalette(CancelledRed,   CancelledRedAccent,   "Rejected")
+    val Completed = StatusPalette(MintGreen, OnMint,     "Completed")
+    val Running   = StatusPalette(Lavender, OnLavender,  "Running")
+    val Pending   = StatusPalette(Cyan,     OnCyan,      "Pending")
+    val Cancelled = StatusPalette(Coral,    Color.White, "Rejected")
 }
