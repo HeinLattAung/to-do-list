@@ -17,12 +17,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,18 +40,10 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-/* =============================================================
- *  PUBLIC API
- *  -----------------------------------------------------------
- *  Two flavors:
- *
- *  1. HorizontalCalendar(viewModel)  →  one-line drop-in.
- *     Reads selectedDate from the VM and calls vm.selectDate()
- *     on click.
- *
- *  2. HorizontalCalendar(selected, onSelect, ...) →  stateless
- *     version for previews / when you don't want Hilt in scope.
- * ============================================================= */
+private val MintGreen       = Color(0xFFC1FF72)
+private val DarkNavy        = Color(0xFF0F1A2E)
+private val CalendarSurface = Color(0xFF1A2540)
+private val MutedLabel      = Color(0xFF8A95AD)
 
 @Composable
 fun HorizontalCalendar(
@@ -58,7 +51,7 @@ fun HorizontalCalendar(
     modifier: Modifier = Modifier,
     daysBefore: Int = 30,
     daysAfter: Int = 90,
-    accentColor: Color = Color(0xFF34A853)        // the "green oval" from the mock
+    accentColor: Color = MintGreen
 ) {
     val selected by viewModel.selectedDate.collectAsStateWithLifecycle()
 
@@ -79,9 +72,8 @@ fun HorizontalCalendar(
     modifier: Modifier = Modifier,
     daysBefore: Int = 30,
     daysAfter: Int = 90,
-    accentColor: Color = Color(0xFF34A853)
+    accentColor: Color = MintGreen
 ) {
-    /* ----------  Build the date range once ---------- */
     val today = remember { LocalDate.now() }
     val dates: List<LocalDate> = remember(today, daysBefore, daysAfter) {
         val start = today.minusDays(daysBefore.toLong())
@@ -89,49 +81,51 @@ fun HorizontalCalendar(
         List(total) { start.plusDays(it.toLong()) }
     }
 
-    /* ----------  Auto-scroll selected into view ---------- */
     val listState = rememberLazyListState()
     LaunchedEffect(selectedDate) {
         val idx = dates.indexOf(selectedDate).takeIf { it >= 0 } ?: return@LaunchedEffect
-        // Center it: scroll so the selected item sits roughly in the middle.
         listState.animateScrollToItem(index = (idx - 2).coerceAtLeast(0))
     }
 
-    Column(modifier = modifier.fillMaxWidth()) {
-
-        /* ----------  Month / year header ---------- */
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
         Text(
-            text     = selectedDate.format(monthYearFormatter),
-            style    = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            text       = selectedDate.format(monthYearFormatter),
+            color      = Color.White,
+            fontSize   = 22.sp,
+            fontWeight = FontWeight.Bold,
+            modifier   = Modifier.padding(start = 4.dp, bottom = 14.dp)
         )
 
-        /* ----------  Day strip ---------- */
-        LazyRow(
-            state               = listState,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            modifier            = Modifier
+        Box(
+            modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(CalendarSurface)
         ) {
-            items(items = dates, key = { it.toEpochDay() }) { date ->
-                DayCell(
-                    date        = date,
-                    isSelected  = date == selectedDate,
-                    isToday     = date == today,
-                    accentColor = accentColor,
-                    onClick     = { onSelect(date) }
-                )
+            LazyRow(
+                state                 = listState,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding        = PaddingValues(horizontal = 14.dp, vertical = 14.dp),
+                modifier              = Modifier.fillMaxWidth()
+            ) {
+                items(items = dates, key = { it.toEpochDay() }) { date ->
+                    DayCell(
+                        date        = date,
+                        isSelected  = date == selectedDate,
+                        isToday     = date == today,
+                        accentColor = accentColor,
+                        onClick     = { onSelect(date) }
+                    )
+                }
             }
         }
     }
 }
 
-/* =============================================================
- *  Single day cell — pill background when selected
- * ============================================================= */
 @Composable
 private fun DayCell(
     date: LocalDate,
@@ -143,47 +137,57 @@ private fun DayCell(
     val targetBg = if (isSelected) accentColor else Color.Transparent
     val bg by animateColorAsState(
         targetValue   = targetBg,
-        animationSpec = tween(durationMillis = 180),
+        animationSpec = tween(durationMillis = 220),
         label         = "dayCellBg"
     )
 
-    val targetFg = when {
-        isSelected -> Color.White
-        isToday    -> accentColor
-        else       -> Color(0xFF333333)
-    }
-    val fg by animateColorAsState(
-        targetValue   = targetFg,
-        animationSpec = tween(durationMillis = 180),
-        label         = "dayCellFg"
+    val targetNumber = if (isSelected) DarkNavy else Color.White
+    val targetLabel  = if (isSelected) DarkNavy.copy(alpha = 0.75f) else MutedLabel
+    val numberFg by animateColorAsState(
+        targetValue   = targetNumber,
+        animationSpec = tween(durationMillis = 220),
+        label         = "dayCellNumber"
     )
+    val labelFg by animateColorAsState(
+        targetValue   = targetLabel,
+        animationSpec = tween(durationMillis = 220),
+        label         = "dayCellLabel"
+    )
+
+    val interaction = remember { MutableInteractionSource() }
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .width(48.dp)
-            .height(64.dp)
-            .clip(RoundedCornerShape(24.dp))     // green-oval shape
+            .width(58.dp)
+            .height(82.dp)
+            .clip(RoundedCornerShape(28.dp))
             .background(bg)
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp)
+            .clickable(
+                interactionSource = interaction,
+                indication        = ripple(bounded = true, color = accentColor),
+                onClick           = onClick
+            )
+            .padding(vertical = 10.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text       = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
-                fontSize   = 11.sp,
-                color      = fg.copy(alpha = if (isSelected) 0.9f else 0.65f)
+                text       = date.dayOfMonth.toString(),
+                fontSize   = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color      = numberFg
             )
             Text(
-                text       = date.dayOfMonth.toString(),
-                fontSize   = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                color      = fg
+                text       = date.dayOfWeek
+                    .getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                    .replaceFirstChar { it.uppercase() },
+                fontSize   = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color      = labelFg
             )
-            // Tiny dot under "today" when it isn't the selected one
             if (isToday && !isSelected) {
                 Box(
                     Modifier
@@ -199,10 +203,7 @@ private fun DayCell(
 private val monthYearFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
 
-/* =============================================================
- *  Preview — pure stateless variant, no Hilt needed
- * ============================================================= */
-@Preview(showBackground = true)
+@Preview(showBackground = true, backgroundColor = 0xFF0F1A2E)
 @Composable
 fun HorizontalCalendarPreview() {
     var date = LocalDate.now()
